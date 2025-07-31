@@ -84,10 +84,11 @@ def convert_to_styled_messages(history):
         user_msg = history[i]["content"] if i < len(history) else ""
         assistant_msg = history[i + 1]["content"] if i + 1 < len(history) else ""
 
-        messages.append((
-            f"👤 **You:** {user_msg}",
-            f"🤖 **Assistant:** {assistant_msg}"
-        ))
+        if user_msg:
+            messages.append({"role": "user", "content": user_msg})
+        if assistant_msg:
+            messages.append({"role": "assistant", "content": assistant_msg})
+
     return messages
 
 # 🌟 UI with styling
