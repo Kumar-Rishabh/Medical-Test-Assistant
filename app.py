@@ -3,6 +3,7 @@ import gradio as gr
 import requests
 from PIL import Image
 import pytesseract
+pytesseract.pytesseract.tesseract_cmd = "/usr/bin/tesseract"
 import fitz  # PyMuPDF
 import os
 
