@@ -1,32 +1,46 @@
-
 import gradio as gr
 import requests
 from PIL import Image
-import pytesseract
-pytesseract.pytesseract.tesseract_cmd = "/usr/bin/tesseract"
 import fitz  # PyMuPDF
 import os
 
 # 🔐 Use environment variable for security
 API_KEY = os.getenv("OPENROUTER_API_KEY")
+OCR_API_KEY = os.getenv("OCR_SPACE_API_KEY")
 MODEL = "mistralai/mistral-7b-instruct"
 
 def extract_text_from_file(file):
     if file is None:
         return ""
-
+    
     ext = os.path.splitext(file.name)[-1].lower()
     if ext in [".png", ".jpg", ".jpeg"]:
-        img = Image.open(file)
-        return pytesseract.image_to_string(img)
+        return extract_text_from_image(file)
     elif ext == ".pdf":
-        text = ""
-        with fitz.open(file.name) as doc:
-            for page in doc:
-                text += page.get_text()
-        return text
+        return extract_text_from_pdf(file)
     else:
         return "❌ Unsupported file type. Please upload PDF or image."
+
+def extract_text_from_image(file):
+    url = "https://api.ocr.space/parse/image"
+    with open(file.name, "rb") as f:
+        r = requests.post(
+            url,
+            files={"filename": f},
+            data={"apikey": OCR_API_KEY, "language": "eng"},
+        )
+    try:
+        result = r.json()
+        return result["ParsedResults"][0]["ParsedText"]
+    except:
+        return "⚠️ OCR failed to extract text."
+
+def extract_text_from_pdf(file):
+    text = ""
+    with fitz.open(file.name) as doc:
+        for page in doc:
+            text += page.get_text()
+    return text if text.strip() else "⚠️ No text found in PDF."
 
 def ask_medical_assistant(message, history, language):
     url = "https://openrouter.ai/api/v1/chat/completions"
@@ -69,11 +83,8 @@ def ask_medical_assistant(message, history, language):
 
 def handle_file(file, history, language):
     extracted = extract_text_from_file(file)
-    
-    # Ensure it's a string
     if not isinstance(extracted, str) or not extracted.strip():
         return [{"role": "assistant", "content": "⚠️ Could not extract any text."}], history, ""
-
     return ask_medical_assistant(extracted, history, language)
 
 def clear_chat():
@@ -89,10 +100,9 @@ def convert_to_styled_messages(history):
             messages.append({"role": "user", "content": user_msg})
         if assistant_msg:
             messages.append({"role": "assistant", "content": assistant_msg})
-
     return messages
 
-# 🌟 UI with styling
+# 🌟 UI
 with gr.Blocks(css="""
     .gradio-container {
         font-family: 'Segoe UI', sans-serif;
@@ -115,23 +125,16 @@ with gr.Blocks(css="""
         clear_btn = gr.Button("🧹 Clear Chat", scale=0)
 
     with gr.Row():
-        chatbot = gr.Chatbot(
-            label="",
-            height=460,
-            show_copy_button=True,
-            scale=3,
-            type="messages"
-        )
+        chatbot = gr.Chatbot(label="", height=460, show_copy_button=True, scale=3, type="messages")
         with gr.Column(scale=1):
-            file_upload = gr.File(
-                label="📎 Upload Report (PDF/Image)",
-                file_types=[".pdf", ".png", ".jpg", ".jpeg"],
-            )
+            file_upload = gr.File(label="📎 Upload Report (PDF/Image)", file_types=[".pdf", ".png", ".jpg", ".jpeg"])
+    
     send_btn = gr.Button("📤 Send", scale=1)
     msg = gr.Textbox(
         placeholder="💬 Type your question here and press Enter...",
         show_label=False,
-        lines=2
+        lines=1,
+        container=False
     )
 
     state = gr.State([])
@@ -140,6 +143,5 @@ with gr.Blocks(css="""
     send_btn.click(ask_medical_assistant, [msg, state, language], [chatbot, state, msg])
     file_upload.change(handle_file, [file_upload, state, language], [chatbot, state, msg])
     clear_btn.click(clear_chat, outputs=[chatbot, state, msg])
-
 
 demo.launch(server_name="0.0.0.0", server_port=10000)
