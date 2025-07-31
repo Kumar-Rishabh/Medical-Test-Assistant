@@ -126,7 +126,7 @@ with gr.Blocks(css="""
                 label="📎 Upload Report (PDF/Image)",
                 file_types=[".pdf", ".png", ".jpg", ".jpeg"],
             )
-
+    send_btn = gr.Button("📤 Send", scale=1)
     msg = gr.Textbox(
         placeholder="💬 Type your question here and press Enter...",
         show_label=False,
@@ -136,6 +136,7 @@ with gr.Blocks(css="""
     state = gr.State([])
 
     msg.submit(ask_medical_assistant, [msg, state, language], [chatbot, state, msg])
+    send_btn.click(ask_medical_assistant, [msg, state, language], [chatbot, state, msg])
     file_upload.change(handle_file, [file_upload, state, language], [chatbot, state, msg])
     clear_btn.click(clear_chat, outputs=[chatbot, state, msg])
 
