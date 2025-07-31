@@ -1,5 +1,4 @@
-gradio
+gradio==4.35.2
 requests
-pytesseract
-pillow
+Pillow
 PyMuPDF
